@@ -31,7 +31,10 @@ local control_fix = dofile("mods/evaisa.bg_input/files/control_fix.lua")
 local client = dofile("mods/evaisa.bg_input/files/client.lua")
 local server = dofile("mods/evaisa.bg_input/files/server.lua")
 
-local is_server = false
+---Nil until a role is decided
+---@type nil|boolean
+local is_server = nil
+
 dead = false
 
 client_index = nil
@@ -42,6 +45,16 @@ local kill_after_frames = -1
 local window
 
 function OnWorldInitialized()
+    client.start_client(function()
+        if client.is_connected() then
+            is_server = false
+        else
+            server.start_server()
+            is_server = true
+            client_index = 1
+        end
+    end)
+
     window = SDL2.SDL_GL_GetCurrentWindow()
 end
 
@@ -119,21 +132,6 @@ function LoadWindowPos()
     end
 end
 
-
-function OnMagicNumbersAndWorldSeedInitialized()
-
-    client.start_client(function()
-        if client.is_connected() then
-            is_server = false
-        else
-            server.start_server()
-            is_server = true
-            client_index = 1
-        end
-    end)
-
-end
-
 function handlePositions()
 
     if(not positions_restored and window and client_index ~= nil)then
@@ -161,6 +159,12 @@ function OnWorldPreUpdate()
     end
 
     wake_up_waiting_threads(1)
+
+    if is_server == nil then
+        -- No role assigned yet
+        return
+    end
+
     if is_server then
         server.main_server()
 
