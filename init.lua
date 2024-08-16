@@ -1,8 +1,33 @@
+package.path = package.path .. ";./mods/evaisa.bg_input/lib/?.lua"
+package.path = package.path .. ";./mods/evaisa.bg_input/lib/?/init.lua"
+package.cpath = package.cpath .. ";./mods/evaisa.bg_input/bin/?.dll"
+package.cpath = package.cpath .. ";./mods/evaisa.bg_input/bin/?.exe"
+
+local function load(modulename)
+	local errmsg = ""
+	for path in string.gmatch(package.path, "([^;]+)") do
+		local filename = string.gsub(path, "%?", modulename)
+		local file = io.open(filename, "rb")
+		if file then
+			-- Compile and return the module
+			return assert(loadstring(assert(file:read("*a")), filename))
+		end
+		errmsg = errmsg .. "\n\tno file '" .. filename .. "' (checked with custom loader)"
+	end
+	return errmsg
+end
+
+
 dofile_once("mods/evaisa.bg_input/lib/NoitaPatcher/load.lua")
 local np = require("noitapatcher")
 
+ffi = require("ffi")
+SDL2 = dofile("mods/evaisa.bg_input/lib/sdl2_ffi.lua")
+
+event_serializer = dofile("mods/evaisa.bg_input/files/event_serializer.lua")
+
 dofile("data/scripts/lib/coroutines.lua")
-dofile("mods/evaisa.bg_input/files/control_fix.lua")
+local control_fix = dofile("mods/evaisa.bg_input/files/control_fix.lua")
 local client = dofile("mods/evaisa.bg_input/files/client.lua")
 local server = dofile("mods/evaisa.bg_input/files/server.lua")
 
@@ -13,10 +38,6 @@ client_index = nil
 local positions_restored = false
 
 local kill_after_frames = -1
-
-local ffi = require("ffi")
-
-local SDL2 = dofile("mods/evaisa.bg_input/lib/sdl2_ffi.lua")
 
 local window
 
@@ -39,8 +60,11 @@ function close_window()
     kill_after_frames = 60
 end
 
+local old_print = print
+
 function print(...)
     if(client_index==nil)then
+        old_print(...)
         GamePrint(...)
         return
     end
@@ -97,6 +121,7 @@ end
 
 
 function OnMagicNumbersAndWorldSeedInitialized()
+
     client.start_client(function()
         if client.is_connected() then
             is_server = false
@@ -120,6 +145,8 @@ function handlePositions()
     end
 end
 
+local initialized_sdlhooks = false	
+
 local clients_spawned = false
 
 function OnWorldPreUpdate()
@@ -136,6 +163,13 @@ function OnWorldPreUpdate()
     wake_up_waiting_threads(1)
     if is_server then
         server.main_server()
+
+        if(not initialized_sdlhooks)then
+            control_fix.init(function(event)
+                server.handle_event(event)
+            end)
+            initialized_sdlhooks = true
+        end
 
         if not clients_spawned then
             clients_spawned = true
@@ -157,6 +191,13 @@ function OnWorldPreUpdate()
 
     elseif client.is_connected() then
         client.main_client()
+
+        if(not initialized_sdlhooks)then
+            control_fix.init(function(event)
+                client.handle_event(event)
+            end)
+            initialized_sdlhooks = true
+        end
     end
 
     handlePositions()

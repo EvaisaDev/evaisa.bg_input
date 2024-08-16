@@ -4,6 +4,7 @@ local settings = dofile("mods/evaisa.bg_input/files/settings.lua")
 local host_url = settings.ip .. ":" .. tostring(settings.port)
 local client_socket = nil
 
+
 local function start_client(callback)
     client_socket = pollnet.open_ws("ws://"..host_url)
 
@@ -62,6 +63,7 @@ local function _handle_server_message(msg)
         dead = true
         close_window()
         GamePrint("Other client died!")
+        return
     end
 
     -- if msg starts with index
@@ -70,9 +72,19 @@ local function _handle_server_message(msg)
         local parts = strsplit(msg, " ")
         -- set client index
         client_index = tonumber(parts[2])
+        return
     end
 
-    print("Server message: " .. msg)
+
+    local event = event_serializer.deserialize(msg)
+
+    if event ~= nil then
+        -- push SDL2 event
+        local success = SDL2.SDL_PushEvent(event)
+        if success == 0 then
+            print("Failed to push event: " .. SDL2.SDL_GetError())
+        end
+    end
 end
 
 local function send_message_to_server(msg)
@@ -103,9 +115,31 @@ local function is_connected()
     return client_socket ~= nil and (client_socket:status() == "open" or client_socket:status() == "opening")
 end
 
+local function handle_event(event)
+    -- if event is one of
+    --[[
+        SDL_KEYDOWN = 0x300,
+        SDL_KEYUP,
+        SDL_TEXTEDITING,
+        SDL_TEXTINPUT,
+        SDL_KEYMAPCHANGED,
+        SDL_MOUSEMOTION = 0x400,
+        SDL_MOUSEBUTTONDOWN,
+        SDL_MOUSEBUTTONUP,
+        SDL_MOUSEWHEEL,
+    ]]
+
+
+    if event.type == 0x300 or event.type == 0x301 or event.type == 0x302 or event.type == 0x303 or event.type == 0x304 or event.type == 0x400 or event.type == 0x401 or event.type == 0x402 or event.type == 0x403 or event.type == 0x404 then
+        local msg = event_serializer.serialize(event)
+        send_message_to_server(msg)
+    end
+end
+
 return {
     start_client = start_client,
     main_client = main_client,
     send_message_to_server = send_message_to_server,
     is_connected = is_connected,
+    handle_event = handle_event
 }

@@ -129,7 +129,21 @@ local function _handle_client_message(client, msg, paused)
         dead = true
         -- close this window
         close_window()
-    
+    else
+        -- assume it's an event
+        local event = event_serializer.deserialize(msg)
+
+        if event  ~= nil then
+            -- push SDL2 event
+            SDL2.SDL_PushEvent(event)
+
+            -- send to all except the sender
+            for _, other_client in pairs(ws_clients) do
+                if other_client.addr ~= client.addr then
+                    other_client:send(msg)
+                end
+            end
+        end
     end
 end
 
@@ -152,7 +166,7 @@ local function main_server(paused)
                 client.sock = nil
                 ws_clients[addr] = nil
             elseif msg then
-                print("Received: " .. tostring(msg))
+                --print("Received: " .. tostring(msg))
                 _handle_client_message(client, msg, paused)
             end
         else
@@ -161,9 +175,21 @@ local function main_server(paused)
     end    
 end
 
+local function handle_event(event)
+    if event.type == 0x300 or event.type == 0x301 or event.type == 0x302 or event.type == 0x303 or event.type == 0x304 or event.type == 0x400 or event.type == 0x401 or event.type == 0x402 or event.type == 0x403 or event.type == 0x404 then
+
+        local msg = event_serializer.serialize(event)
+
+        broadcast_message(msg)
+    end
+
+end
+
+
 
 return {
     start_server = start_server,
     main_server = main_server,
     broadcast_message = broadcast_message,
+    handle_event = handle_event
 }
