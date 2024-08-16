@@ -145,7 +145,7 @@ function handlePositions()
     end
 end
 
-local initialized_sdlhooks = false	
+local initialized_sdlhooks = false
 
 local clients_spawned = false
 
@@ -184,7 +184,7 @@ function OnWorldPreUpdate()
                 local gamemode = np.GetGameModeNr()
 
                 print("Starting client with save slot "..tostring(i).." gamemode: "..tostring(gamemode))
-  
+
                 os.execute("start Noita.exe -no_logo_splashes -gamemode "..tostring(gamemode).." -save_slot "..tostring(i))
             end
         end
@@ -192,12 +192,13 @@ function OnWorldPreUpdate()
     elseif client.is_connected() then
         client.main_client()
 
-        if(not initialized_sdlhooks)then
-            control_fix.init(function(event)
-                client.handle_event(event)
-            end)
-            initialized_sdlhooks = true
-        end
+        -- This creates an infinite feedback loop, and would introduce latency anyway
+        -- if(not initialized_sdlhooks)then
+        --     control_fix.init(function(event)
+        --         client.handle_event(event)
+        --     end)
+        --     initialized_sdlhooks = true
+        -- end
     end
 
     handlePositions()
