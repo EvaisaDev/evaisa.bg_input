@@ -44,10 +44,19 @@ local function client_send(client, msg)
     end
 end
 
+local function client_send_binary(client, msg)
+    if client.sock then
+        client.stat_out = (client.stat_out or 0) + 1
+        client.sock:send_binary(msg)
+    else
+        client:close()
+    end
+end
+
 local function on_new_client(sock, addr)
     print("New client: " .. addr)
     if ws_clients[addr] then ws_clients[addr].sock:close() end
-    local new_client = {addr = addr, sock = sock, authorized = false, close = close_client, send = client_send, stat_in=0, stat_out=0}
+    local new_client = {addr = addr, sock = sock, authorized = false, close = close_client, send = client_send, send_binary = client_send_binary, stat_in=0, stat_out=0}
     ws_clients[addr] = new_client
 
     -- send index to client
@@ -96,6 +105,12 @@ local function broadcast_message(msg)
     end
 end
 
+local function broadcast_message_binary(msg)
+    for _, client in pairs(ws_clients) do
+        client:send_binary(msg)
+    end
+end
+
 local function _handle_client_message(client, msg, paused)
     if not client.authorized then
         if not check_authorization(client, msg) then
@@ -133,7 +148,7 @@ local function _handle_client_message(client, msg, paused)
         -- assume it's an event
         local event = event_serializer.deserialize(msg)
 
-        if event  ~= nil then
+        if event ~= nil and is_valid_event(event) then
             -- push SDL2 event
             SDL2.SDL_PushEvent(event)
 
@@ -172,20 +187,15 @@ local function main_server(paused)
         else
             ws_clients[addr] = nil
         end
-    end    
+    end
 end
 
 local function handle_event(event)
-    if event.type == 0x300 or event.type == 0x301 or event.type == 0x302 or event.type == 0x303 or event.type == 0x304 or event.type == 0x400 or event.type == 0x401 or event.type == 0x402 or event.type == 0x403 or event.type == 0x404 then
-
+    if is_valid_event(event) then
         local msg = event_serializer.serialize(event)
-
-        broadcast_message(msg)
+        broadcast_message_binary(msg)
     end
-
 end
-
-
 
 return {
     start_server = start_server,

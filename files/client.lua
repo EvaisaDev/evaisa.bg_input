@@ -31,9 +31,6 @@ local function start_client(callback)
         callback()
 
     end)
-
-
-
 end
 
 local strfind = string.find
@@ -75,10 +72,9 @@ local function _handle_server_message(msg)
         return
     end
 
-
     local event = event_serializer.deserialize(msg)
 
-    if event ~= nil then
+    if event ~= nil and is_valid_event(event) then
         -- push SDL2 event
         local success = SDL2.SDL_PushEvent(event)
         if success == 0 then
@@ -90,6 +86,14 @@ end
 local function send_message_to_server(msg)
     if client_socket then
         client_socket:send(msg)
+    else
+        print("Not connected to server.")
+    end
+end
+
+local function send_message_to_server_binary(msg)
+    if client_socket then
+        client_socket:send_binary(msg)
     else
         print("Not connected to server.")
     end
@@ -129,10 +133,9 @@ local function handle_event(event)
         SDL_MOUSEWHEEL,
     ]]
 
-
-    if event.type == 0x300 or event.type == 0x301 or event.type == 0x302 or event.type == 0x303 or event.type == 0x304 or event.type == 0x400 or event.type == 0x401 or event.type == 0x402 or event.type == 0x403 or event.type == 0x404 then
+    if is_valid_event(event) then
         local msg = event_serializer.serialize(event)
-        send_message_to_server(msg)
+        send_message_to_server_binary(msg)
     end
 end
 

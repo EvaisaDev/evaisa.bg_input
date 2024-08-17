@@ -13,6 +13,9 @@ local init = function(callback)
     event_callback = callback
 end
 
+function is_valid_event(event)
+    return (0x300 <= event.type and event.type <= 0x304) or (0x400 <= event.type and event.type <= 0x403)
+end
 
 local SDL_PollEvent_hook
 SDL_PollEvent_hook = minhook.create_hook(SDL2.SDL_PollEvent, function(event)
